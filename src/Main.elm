@@ -1,12 +1,32 @@
 -- A simple Pomodoro timer written in Elm
 
 
-module Main exposing (..)
+port module Main exposing (..)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Time exposing (..)
+
+
+--- PORTS ---
+{- Load a sample by giving it a name and the URL of the audio file (for example .wav or .mp3) to decode. -}
+
+
+port loadSample : ( String, String ) -> Cmd msg
+
+
+
+{- Play a given sample at given point in time in the future -}
+
+
+port playSample : ( String, Float ) -> Cmd msg
+
+
+loadInstrument : Cmd msg
+loadInstrument =
+    loadSample ( "samples/" ++ "alert.wav", "alert" )
+
 
 
 ---- MODEL ----
@@ -20,12 +40,11 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { running = False, elapsed = 0 }, Cmd.none )
+    ( { running = False, elapsed = 0 }, loadInstrument )
 
 
 pomodoroDuration =
-    -- 25 * 60
-    10
+    25 * 60
 
 
 
@@ -52,10 +71,16 @@ update msg model =
                 newElapsed =
                     model.elapsed + 1
 
-                newRunning =
-                    (newElapsed < pomodoroDuration)
+                timeIsUp =
+                    (newElapsed >= pomodoroDuration)
+
+                action =
+                    if (timeIsUp) then
+                        playSample ( "alert", 0 )
+                    else
+                        Cmd.none
             in
-                ( { model | elapsed = model.elapsed + 1, running = newRunning }, Cmd.none )
+                ( { model | elapsed = model.elapsed + 1, running = not timeIsUp }, action )
 
 
 
@@ -66,20 +91,11 @@ view : Model -> Html Msg
 view model =
     div []
         [ renderTimer model
-        , playSound model
         , div []
             [ button [ onClick StartTimer, disabled (model.running) ] [ text "Start" ]
             , button [ onClick StopTimer, disabled (not model.running) ] [ text "Stop" ]
             ]
         ]
-
-
-playSound : Model -> Html Msg
-playSound model =
-    if (model.elapsed >= pomodoroDuration) then
-        audio [ src "%PUBLIC_URL%/alert.wav", autoplay True, type_ "audio/wav" ] []
-    else
-        text ""
 
 
 renderTimer : Model -> Html Msg
